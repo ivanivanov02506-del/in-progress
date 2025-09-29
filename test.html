@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+<title>🎭 Imposter Pro</title>
+<style>
+:root{
+  --bg1:#071a2f;
+  --bg2:#0f3a5a;
+  --card: rgba(255,255,255,0.06);
+  --accent1: #ff6b6b;
+  --accent2: #7ef3a1;
+  --glass: rgba(255,255,255,0.04);
+  --glass-strong: rgba(255,255,255,0.06);
+  --maxPlayers: 30;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0;background:#000;font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial; -webkit-font-smoothing:antialiased;}
+body{
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(120deg,var(--bg1),var(--bg2));
+  background-size:300% 300%;
+  animation: bgShift 18s linear infinite;
+  color:#fff;
+  padding:18px;
+}
+
+/* animated orbs (soft foggy glow) */
+.orbs { position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;}
+.orb {
+  position:absolute;
+  border-radius:50%;
+  filter: blur(30px);
+  opacity:0.12;
+  transform: translate3d(0,0,0);
+  animation: float 12s ease-in-out infinite;
+}
+@keyframes float {
+  0%{transform: translateY(0) scale(1)}
+  50%{transform: translateY(-40px) scale(1.05)}
+  100%{transform: translateY(0) scale(1)}
+}
+@keyframes bgShift { 0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%} }
+
+/* app container — glass / foggy window */
+.app {
+  width:100%;
+  max-width:520px;
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow: 0 14px 60px rgba(2,8,23,0.7);
+  position:relative;
+  z-index:5;
+  backdrop-filter: blur(10px) saturate(110%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+/* header / nav */
+.header {
+  display:flex; align-items:center; gap:12px;
+  padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.03);
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+}
+.logo {
+  width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.4);
+  font-size:22px;
+}
+.title { font-weight:800; font-size:18px; color:var(--accent1); letter-spacing:0.6px; }
+
+/* screens area */
+.screen {
+  padding:20px;
+  min-height:420px;
+  display:none;
+  animation: screenIn 400ms ease;
+}
+.screen.active{ display:block; }
+@keyframes screenIn{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none} }
+
+/* center/hints */
+.center { text-align:center; }
+.hint { color: rgba(255,255,255,0.75); margin-bottom:12px; font-size:15px; }
+
+/* inputs & lists */
+.input {
+  display:block; margin:10px auto 6px auto; width:86%; padding:12px 10px; border-radius:12px;
+  border:1px solid rgba(255,255,255,0.03); background:var(--glass); color:#fff; font-size:15px;
+}
+.small { font-size:13px; color:rgba(255,255,255,0.65); margin-top:6px; }
+
+/* player count control */
+.playerControl { display:flex; gap:12px; align-items:center; justify-content:center; margin:8px 0 6px 0; }
+.arrow {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:52px; height:52px; border-radius:12px; background: rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.04); color:#fff; font-weight:700; font-size:18px; cursor:pointer;
+  box-shadow: none;
+}
+.arrow:active{ transform: translateY(2px) }
+
+/* BIG player display (stands out) */
+.numDisplayPlayers {
+  width:180px; height:72px; overflow:hidden; position:relative; border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border:1px solid rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center;
+  font-size:30px; font-weight:800; color:#fff; cursor:text;
+}
+.numDisplayImposters {
+  width:96px; height:56px; overflow:hidden; position:relative; border-radius:12px;
+  background: var(--glass); border:1px solid rgba(255,255,255,0.03); display:flex; align-items:center; justify-content:center;
+  font-size:18px; font-weight:700; color:#fff; cursor:text;
+}
+
+/* slot(s) used for sliding animation */
+.numSlot { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; transition: transform 260ms cubic-bezier(.2,.9,.25,1); will-change: transform; }
+
+/* inline editor */
+.inlineNumberInput { width:100%; height:100%; border:0; background:transparent; color:inherit; font:inherit; text-align:center; outline:none; -webkit-appearance:none; }
+
+/* big primary button (larger overall) */
+.btn {
+  display:inline-block;
+  margin-top:12px;
+  padding:16px 22px;
+  border-radius:14px;
+  background: linear-gradient(90deg,var(--accent1),#cc3b3b);
+  color:#fff; font-weight:800; font-size:16px;
+  border:none; cursor:pointer;
+  box-shadow: 0 10px 36px rgba(199,30,57,0.16);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:active{ transform: translateY(3px) scale(.995); box-shadow:0 6px 20px rgba(0,0,0,0.4); }
+
+/* names list (scrollable if many players) */
+.names { display:flex; flex-direction:column; gap:8px; margin-top:8px; align-items:center; max-height:320px; overflow:auto; padding-right:8px; }
+.nameRow { width:92%; display:flex; gap:10px; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:10px; background: linear-gradient(90deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.02); }
+
+/* role card (bigger text) */
+.flipWrap { perspective:1000px; display:flex; justify-content:center; margin-top:18px; }
+.flipCard {
+  width:88%; max-width:460px; height:180px; border-radius:16px; position:relative; transform-style:preserve-3d; transition: transform 600ms cubic-bezier(.2,.9,.25,1);
+  box-shadow: 0 20px 48px rgba(2,8,23,0.6);
+  border:1px solid rgba(255,255,255,0.03); background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+  cursor:pointer;
+}
+.flipCard.flipped{ transform: rotateY(180deg); }
+.face {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center; backface-visibility:hidden; border-radius:16px; padding:22px; text-align:center;
+}
+.face.front { font-size:1.25em; color:rgba(255,255,255,0.96); }
+.face.back { transform: rotateY(180deg); font-weight:800; font-size:1.5em; letter-spacing:0.6px; }
+
+/* ROLE TEXT STYLING: proportional sizing via clamp() */
+#roleText { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; width:100%; }
+
+/* label: slightly larger but still smaller than the word; sentence case */
+.role-label {
+  font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+  color: rgba(255,255,255,0.92);
+  font-weight:700;
+  letter-spacing:0.3px;
+  margin:0;
+}
+
+/* big word: increased but proportional */
+.role-word {
+  font-size: clamp(1.6rem, 4.8vw, 2.2rem); /* увеличено спрямо предишната версия */
+  line-height:1;
+  font-weight:900;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:inherit;
+  white-space:nowrap;
+  margin:0;
+}
+
+/* IMPOSTER single-line: scaled up but proportional */
+.role-imposter {
+  font-size: clamp(1.25rem, 3.6vw, 1.8rem); /* увеличено спрямо предишната версия */
+  font-weight:900;
+  white-space:nowrap;
+  letter-spacing:0.4px;
+  margin:0;
+}
+
+/* role colors */
+.role-good {
+  background: linear-gradient(180deg, rgba(2,120,90,0.12), rgba(2,120,90,0.06));
+  color: var(--accent2);
+  border: 1px solid rgba(126,243,161,0.12);
+  box-shadow: 0 14px 36px rgba(0,200,120,0.06);
+}
+.role-bad {
+  background: linear-gradient(180deg, rgba(200,30,60,0.12), rgba(200,30,60,0.06));
+  color: var(--accent1);
+  border:1px solid rgba(255,80,90,0.12);
+  box-shadow: 0 14px 36px rgba(255,80,90,0.06);
+}
+
+/* current player text */
+.current { font-size:18px; font-weight:700; margin-top:8px; }
+
+/* HIDE BUTTON SLIDE - initial state hidden with translateY and opacity */
+#hideBtn {
+  transform: translateY(-12px);
+  opacity: 0;
+  transition: transform 360ms cubic-bezier(.2,.9,.25,1), opacity 300ms ease;
+  will-change: transform, opacity;
+}
+/* visible state */
+#hideBtn.slide-in {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* confetti: placed topmost (front of screen) */
+#confetti {
+  pointer-events:none;
+  position:fixed;
+  inset:0;
+  z-index:9999; /* highest */
+  overflow:hidden;
+}
+
+/* utilities */
+.row{ display:flex; gap:10px; align-items:center; justify-content:center; margin-top:12px; }
+.linkBtn{ background:transparent; color:var(--accent2); border:none; font-weight:700; cursor:pointer; }
+.footerNote{ font-size:13px; color:rgba(255,255,255,0.58); margin-top:10px; text-align:center; }
+
+@media (max-height:700px){ .flipCard{height:150px} .app{max-width:420px} .numDisplayPlayers { width:150px; height:60px; font-size:24px } }
+</style>
+</head>
+<body>
+
+<div class="orbs" aria-hidden="true">
+  <div class="orb" style="width:340px;height:340px;left:-60px;top:10%;background:linear-gradient(90deg,#7ef3a1,#2bd3ff); animation-duration:16s;"></div>
+  <div class="orb" style="width:260px;height:260px;right:-40px;top:5%;background:linear-gradient(90deg,#ff8a8a,#ff6b6b); animation-duration:20s; animation-delay:3s;"></div>
+  <div class="orb" style="width:180px;height:180px;left:10%;bottom:5%;background:linear-gradient(90deg,#ffc87a,#ff6b6b); animation-duration:14s; animation-delay:1s;"></div>
+</div>
+
+<div id="confetti" aria-hidden="true"></div>
+
+<div class="app" role="application" aria-label="Imposter Pro">
+
+  <div class="header">
+    <div class="logo">🎭</div>
+    <div class="title">Imposter Pro</div>
+  </div>
+
+  <!-- START SCREEN -->
+  <section id="startScreen" class="screen active">
+    <div class="center">
+      <h2>Нова игра</h2>
+      <p class="hint">Въведи брой играчи:</p>
+
+      <div class="playerControl" aria-hidden="false">
+        <button class="arrow" id="decPlayers" aria-label="По-малко играчи" onclick="changePlayers(-1)">◀</button>
+
+        <div class="numDisplayPlayers" id="numDisplayPlayers" title="Кликни, за да напишеш число" tabindex="0" aria-live="polite" aria-atomic="true">
+          <div class="numSlot" id="numSlot">3</div>
+        </div>
+
+        <button class="arrow" id="incPlayers" aria-label="Повече играчи" onclick="changePlayers(1)">▶</button>
+      </div>
+
+      <p class="hint" style="margin-top:10px;">Брой импостъри:</p>
+      <div class="playerControl" style="margin-bottom:6px;">
+        <button class="arrow" id="decImposters" aria-label="По-малко импостъри" onclick="changeImposters(-1)">◀</button>
+        <div class="numDisplayImposters" id="numDisplayImposters" title="Кликни, за да напишеш число">
+          <div class="numSlot" id="imposterSlot">1</div>
+        </div>
+        <button class="arrow" id="incImposters" aria-label="Повече импостъри" onclick="changeImposters(1)">▶</button>
+      </div>
+
+      <div class="row"><button class="btn" onclick="startSetup()">Продължи ➜</button></div>
+      <div class="footerNote" id="tipText">Съвет: Уверете се, че никой не вижда картата ви, когато я разглеждате.</div>
+    </div>
+  </section>
+
+  <!-- NAMES SCREEN -->
+  <section id="nameScreen" class="screen" aria-hidden="true">
+    <div class="center">
+      <h2>Имена на играчи</h2>
+      <p class="hint">Попълни имената или остави празно за автоматични имена</p>
+      <div id="namesContainer" class="names" aria-label="Списък с имена на играчи"></div>
+      <div class="row"><button class="btn" id="startBtn">Старт 🎮</button></div>
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="gameScreen" class="screen" aria-hidden="true">
+    <div class="center">
+      <div class="current" id="currentPlayer">Играч, твой ред е</div>
+
+      <div class="flipWrap">
+        <div id="flipCard" class="flipCard" role="button" tabindex="0"
+             onclick="cardClick()" onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); cardClick(); }">
+          <div class="face front">
+            <div style="max-width:86%;"><div style="font-size:18px;font-weight:800;margin-bottom:8px;">Натисни "Покажи ролята" или докосни картата</div><div class="small">После натисни "Скрий и предай"</div></div>
+          </div>
+          <div id="backFace" class="face back">
+            <div id="roleText">РОЛЯ</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:18px;">
+        <button id="showBtn" class="btn" onclick="revealRole()">Покажи ролята 👀</button>
+      </div>
+      <div class="row" style="margin-top:18px;">
+        <button id="hideBtn" class="btn" style="display:none;background:linear-gradient(90deg,#00c78a,#00a36a); padding:18px 26px; margin-top:12px;" onclick="hideRole()">Скрий и предай 📱</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- END SCREEN -->
+  <section id="endScreen" class="screen" aria-hidden="true">
+    <div class="center">
+      <h2>✅ Всички видяха ролите си!</h2>
+      <p class="hint">Избери опция</p>
+      <div class="row" style="flex-direction:column; width:100%; align-items:center;">
+        <button class="btn" onclick="newGameSamePlayers()">🔄 Нова игра (същите играчи)</button>
+        <button class="btn" style="background:linear-gradient(90deg,#4b6bff,#2b4dff); margin-top:12px;" onclick="exitToStart()">🏠 Изход</button>
+      </div>
+      <div class="footerNote">Брой играчи: <span id="footerCount">0</span> — Думи: 300</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* =========== WORDS (300) =========== */
+/* (ползвам същия масив както преди — запазено) */
+const words = [
+ "ДРАКОН","ФЕНИКС","КЕНТАВЪР","РИЦАР","МАГЬОСНИК","КРАЛИЦА","ЦАР","ПРИНЦЕСА","ГЕРОЙ","АМУЛЕТ",
+ "ЕЛФ","ТРОЛ","ГНОМ","ВЪЛШЕБНИК","МАГИЯ","РУНА","МЕЧ","ЩИТ","КОРОНА","ЗАКЛИНАНИЕ",
+ "ТИТАН","МЕДУЗА","КИМЕРА","ЦЕРБЕР","ВАЛКИРИЯ","МИНОТАВЪР","ОЛИМП","ХРАМ","ЗЕВС","ОДИН",
+ "ТОР","ЛОКИ","ПОСЕЙДОН","ХАДЕС","АРЕС","ХЕРА","АТЛАНТИДА","СФИНКС","ПЕГАС","САТИР",
+
+ "ЛЕКАР","ХИРУРГ","ПИЛОТ","УЧИТЕЛ","ЖУРНАЛИСТ","АРТИСТ","ШПИОН","ПОЛИЦАЙ","АДВОКАТ","СЪДИЯ",
+ "ИЗСЛЕДОВАТЕЛ","НАУЧЕН РАБОТНИК","КАПИТАН","ВОЙНИК","ФЕРМЕР","ПИСАТЕЛ","ХУДОЖНИК","МУЗИКАНТ","ТАНЦЬОР","ДИРЕКТОР",
+ "ПРОФЕСОР","ПРОГРАМИСТ","ИНЖЕНЕР","ПРЕВОДАЧ","ФИЛОСОФ","ДИПЛОМАТ","МИНИСТЪР","ПОЛИТИК","СЕНАТОР","ПРОКУРОР",
+ "МЕНТЕРА","ДЕТЕКТИВ","СЛЕДОВАТЕЛ","ПСИХОЛОГ","ФОТОГРАФ","КОСМИЧЕСКИ ПИЛОТ","СТРОИТЕЛ","ТЪРГОВЕЦ","ШЕФ","РАБОТНИК",
+
+ "ЗАМЪК","КРЕПОСТ","ЛАБИРИНТ","ХРАМ","АРЕНА","ТЕАТЪР","КИНО","СТАДИОН","БИБЛИОТЕКА","БОЛНИЦА",
+ "УНИВЕРСИТЕТ","ШКОЛА","ЛАБОРАТОРИЯ","КАФЕНЕ","РЕСТОРАНТ","БАР","МУЗЕЙ","ОПЕРА","ЦЪРКВА","СВЕТИЛИЩЕ",
+ "ПАЗАР","УЛИЦА","МОСТ","ТУНЕЛ","МЕТРО","ЛЕТИЩЕ","ГАРА","ПАРК","ГРАД","СЕЛО",
+ "ПУСТИНЯ","ДЖУНГЛА","САВАНА","ВОДОПАД","ПЛАНИНА","ОКЕАН","ПЛАЖ","КУХНЯ","СПАЛНЯ","ТЕРАСА",
+
+ "МОНОКЪЛ","ХРОНОМЕТЪР","КОМПАС","КАРТА","СВИТЪК","ФЕНЕР","МАСКА","КЛЮЧ","КАМЕРА","ТЕЛЕСКОП",
+ "ЛУПА","ПЕЧАТ","ПЕРО","ПОДКОВА","ДАГЕР","ЛИРА","БУТОН","ФЛЕШКА","КОМПЮТЪР","РОБОТ",
+ "ДРОН","СМАРТФОН","РАДИО","АНТЕНА","КАЛКУЛАТОР","ТЕСТЕР","КОНЗОЛА","ТЕЛЕВИЗОР","ПРОЖЕКТОР","ФОТОАПАРАТ",
+ "ЧАСОВНИК","КРИСТАЛ","ПРЪСТЕН","МОНЕТА","КУФАР","МЕЧ","ЩИТ","КОРОНА","АМУЛЕТ","СВИТЪК",
+
+ "ЛЪВ","ТИГЪР","СЛОН","ЖИРАФ","МЕЧКА","ВЪЛК","ЛИСИЦА","ОРЕЛ","ЯСТРЕБ","СОКОЛ",
+ "ГЪЛЪБ","ВРАНА","КОТКА","КУЧЕ","ЗМИЯ","ГЕКОН","АКУЛА","КИТ","ДЕЛФИН","ОКТОПОД",
+ "МРАВКА","ПЧЕЛА","ОСА","ПЕПЕРУДА","ЖАБА","КОН","КОРАБНИЧЕ","ТАРАНТУЛА","ГЕПАРД","КАМЕЛЕОН",
+ "ПИНГВИН","ПЕЛИКАН","АЛБАТРОС","ФЛАМИНГО","КОАЛА","КЕНГУРУ","АНТИЛОПА","БИЗОН","ХИЕНА","НОСОРОГ",
+
+ "ЛЮБОВ","ЩАСТИЕ","РАДОСТ","ТЪГА","СТРАХ","ГНЯВ","АЛЧНОСТ","СЪМНЕНИЕ","ЗАВИСТ","НОСТАЛГИЯ",
+ "ПОДОЗРЕНИЕ","САМОТА","НАДЕЖДА","ОТЧАЯНИЕ","СЪПРОТИВА","ЛЪЖА","ПРАВДА","ВЯРА","МЕЧТА","СЪН",
+ "ИНТУИЦИЯ","ОБИЧ","ДОВЕРИЕ","СРАМ","ГОРДОСТ","УСПЕХ","ПОРАЖЕНИЕ","ЗАГАДКА","ХАОС","ПОРЯДЪК",
+ "КОНФЛИКТ","МИР","ПРИЯТЕЛСТВО","ВРАЖДА","ТЪРПЕНИЕ","СТРЕС","СПОКОЙСТВИЕ","ЗАДОВОЛСТВО","НАДЕЖДА2","СЪМНЕНИЕ2",
+
+ "КВАНТ","АТОМ","МОЛЕКУЛА","НАНОТЕХ","ГЕН","ДНК","ВИРУС","БАКТЕРИЯ","АНТИВИРУС","ВАКСИНА",
+ "САТЕЛИТ","РАКЕТА","КОСМОС","ГАЛАКТИКА","ВСЕЛЕНА","ПЛАНЕТА","ЛУНА","МЕТЕОР","ЧЕРНА ДУПКА","СВРЪХНОВА",
+ "КОД","АЛГОРИТЪМ","ИНТЕРФЕЙС","ПРОГРАМА","СЪРВЪР","ДАННИ","ИНТЕРНЕТ","САЙТ","АПЛИКАЦИЯ","ЧИП",
+ "НЕВРОН","ИИ","РОБОТИКА","МАТРИЦА","ТЕОРИЯ","ФОРМУЛА","ЕКСПЕРИМЕНТ","ФИЗИКА","ХИМИЯ","БИОЛОГИЯ",
+
+ "СТОЛ","МАСА","ВРАТА","ПРОЗОРЕЦ","СТЕНА","КОЛА","КНИГА","ТЕТРАДКА","ЧАНТА","ПАЛТО",
+ "ШАПКА","ОБЛАК","СНЯГ","ДЪЖД","СЛЪНЦЕ","ВЯТЪР","НОЩ","ДЕН","ХЛЯБ","СОЛ"
+];
+
+/* state */
+let players = [];
+let secretWord = "";
+let imposterIndices = [];
+let current = 0;
+const confettiColors = ["#FF6B6B","#FFD93D","#7EF3A1","#6BCBFF","#C7B2FF"];
+
+/* controls state */
+let numPlayersVal = 3;
+let numImpostersVal = 1;
+
+/* utilities */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+/* animate number change (unchanged) */
+function animateNumberChange(containerId, slotId, newVal, direction) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (container.dataset.animating === "1") return;
+  container.dataset.animating = "1";
+  const stray = container.querySelector('[id$="_new"]');
+  if (stray) stray.remove();
+  const oldSlot = container.querySelector('#' + slotId);
+  if (!oldSlot) {
+    const fallback = document.createElement('div');
+    fallback.className = 'numSlot';
+    fallback.id = slotId;
+    fallback.textContent = String(newVal);
+    container.appendChild(fallback);
+    container.dataset.animating = "0";
+    return;
+  }
+  const oldVal = oldSlot.textContent.trim();
+  if (String(oldVal) === String(newVal)) {
+    container.dataset.animating = "0";
+    return;
+  }
+  const newSlot = oldSlot.cloneNode(true);
+  newSlot.id = slotId + '_new';
+  newSlot.textContent = String(newVal);
+  newSlot.style.transform = direction > 0 ? 'translateX(100%)' : 'translateX(-100%)';
+  container.appendChild(newSlot);
+  newSlot.getBoundingClientRect();
+  oldSlot.style.transform = direction > 0 ? 'translateX(-100%)' : 'translateX(100%)';
+  newSlot.style.transform = 'translateX(0%)';
+  setTimeout(()=> {
+    if (oldSlot && oldSlot.parentNode) oldSlot.parentNode.removeChild(oldSlot);
+    newSlot.id = slotId;
+    newSlot.style.transform = '';
+    container.dataset.animating = "0";
+  }, 300);
+}
+
+/* controls */
+function changePlayers(delta) {
+  const minPlayers = 3;
+  const maxPlayers = Math.max(10, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--maxPlayers')) || 30);
+  const newVal = Math.min(maxPlayers, Math.max(minPlayers, numPlayersVal + delta));
+  if (newVal === numPlayersVal) return;
+  const dir = delta >= 0 ? 1 : -1;
+  numPlayersVal = newVal;
+  if (numImpostersVal >= numPlayersVal) {
+    numImpostersVal = Math.max(1, numPlayersVal - 1);
+    animateNumberChange('numDisplayImposters','imposterSlot', numImpostersVal, -1);
+  }
+  animateNumberChange('numDisplayPlayers','numSlot', numPlayersVal, dir);
+  const fc = document.getElementById('footerCount'); if (fc) fc.textContent = players.length || numPlayersVal;
+}
+function changeImposters(delta) {
+  const minImp = 1;
+  const maxImp = Math.max(1, numPlayersVal - 1);
+  const newVal = Math.min(maxImp, Math.max(minImp, numImpostersVal + delta));
+  if (newVal === numImpostersVal) return;
+  const dir = delta >= 0 ? 1 : -1;
+  numImpostersVal = newVal;
+  animateNumberChange('numDisplayImposters','imposterSlot', numImpostersVal, dir);
+}
+
+/* inline editing */
+function attachInlineEditors() {
+  const playersDisplay = document.getElementById('numDisplayPlayers');
+  const impDisplay = document.getElementById('numDisplayImposters');
+  function startEdit(container, slotId, min, max, commitCb) {
+    if (container.dataset.animating === "1") return;
+    const oldSlot = container.querySelector('#' + slotId);
+    if (!oldSlot) return;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'inlineNumberInput';
+    input.min = min;
+    input.max = max;
+    input.value = oldSlot.textContent.trim();
+    oldSlot.style.display = 'none';
+    container.appendChild(input);
+    input.focus();
+    input.select();
+    function commit() {
+      const v = parseInt(input.value,10);
+      const valid = Number.isFinite(v) && v >= min && v <= max;
+      const newVal = valid ? v : parseInt(oldSlot.textContent,10);
+      input.remove();
+      oldSlot.style.display = 'flex';
+      oldSlot.textContent = String(newVal);
+      if (typeof commitCb === 'function') commitCb(newVal);
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e)=> {
+      if (e.key === 'Enter') { commit(); input.blur(); }
+      if (e.key === 'Escape') { input.value = oldSlot.textContent; input.blur(); }
+    });
+  }
+  playersDisplay.addEventListener('click', ()=> startEdit(playersDisplay, 'numSlot', 3, 100, (v) => {
+    numPlayersVal = v;
+    if (numImpostersVal >= numPlayersVal) {
+      numImpostersVal = Math.max(1, numPlayersVal - 1);
+      const impslot = document.getElementById('imposterSlot'); if (impslot) impslot.textContent = String(numImpostersVal);
+    }
+    const fc = document.getElementById('footerCount'); if (fc) fc.textContent = players.length || numPlayersVal;
+  }));
+  impDisplay.addEventListener('click', ()=> startEdit(impDisplay, 'imposterSlot', 1, Math.max(1, numPlayersVal-1), (v) => {
+    numImpostersVal = v;
+  }));
+}
+
+/* screen helpers */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  const fc = document.getElementById('footerCount'); if (fc) fc.textContent = players.length || numPlayersVal;
+}
+
+/* setup flow */
+function startSetup(){
+  showScreen('nameScreen');
+  const n = Math.max(3, parseInt(numPlayersVal,10) || 3);
+  const namesContainer = document.getElementById('namesContainer');
+  namesContainer.innerHTML = '';
+  for (let i=0;i<n;i++){
+    const input = document.createElement('input');
+    input.className='input';
+    input.id = 'p'+i;
+    input.placeholder = 'Играч ' + (i+1);
+    namesContainer.appendChild(input);
+  }
+  const startBtn = document.getElementById('startBtn');
+  startBtn.onclick = ()=> beginGame(n);
+}
+
+/* begin game */
+function beginGame(n){
+  players = [];
+  for (let i=0;i<n;i++){
+    const val = (document.getElementById('p'+i).value || '').trim();
+    players.push(val || ('Играч '+(i+1)));
+  }
+  if (numImpostersVal >= players.length) {
+    numImpostersVal = Math.max(1, players.length - 1);
+    const impslot = document.getElementById('imposterSlot'); if (impslot) impslot.textContent = String(numImpostersVal);
+  }
+  shuffleArray(players);
+  startNewRound();
+}
+
+/* pick unique indices */
+function pickUniqueIndices(n, k){
+  const arr = Array.from({length:n}, (_,i)=>i);
+  shuffleArray(arr);
+  return arr.slice(0,k).sort((a,b)=>a-b);
+}
+
+/* start new round */
+function startNewRound(){
+  secretWord = words[Math.floor(Math.random()*words.length)];
+  shuffleArray(players);
+  imposterIndices = pickUniqueIndices(players.length, Math.min(numImpostersVal, Math.max(1, players.length-1)));
+  current = 0;
+  document.getElementById('flipCard').classList.remove('flipped');
+  document.getElementById('showBtn').style.display = 'inline-block';
+  const hideBtn = document.getElementById('hideBtn');
+  hideBtn.classList.remove('slide-in');
+  hideBtn.style.display = 'none';
+  updateCurrentUI();
+  showScreen('gameScreen');
+}
+
+/* update UI */
+function updateCurrentUI(){
+  const cp = document.getElementById('currentPlayer');
+  cp.textContent = players[current] + ', твой ред е!';
+  const backFace = document.getElementById('backFace');
+  backFace.className = 'face back';
+  backFace.querySelector('#roleText').textContent = '';
+}
+
+/* card click */
+function cardClick(){
+  const showBtn = document.getElementById('showBtn');
+  const hideBtn = document.getElementById('hideBtn');
+  if (showBtn.style.display !== 'none') { revealRole(); }
+  else if (hideBtn.style.display !== 'none') { hideRole(); }
+}
+
+/* reveal role — UPDATED: label sentence case + proportional sizes */
+function revealRole(){
+  const flip = document.getElementById('flipCard');
+  const roleText = document.getElementById('roleText');
+  const backFace = document.getElementById('backFace');
+
+  const isImposter = imposterIndices.includes(current);
+
+  if (isImposter){
+    roleText.innerHTML = `<div class="role-imposter">🚨 ТИ СИ IMPOSTER!</div>`;
+    backFace.classList.add('role-bad');
+    backFace.classList.remove('role-good');
+  } else {
+    roleText.innerHTML = `<div class="role-label">🔑 Тайната дума е:</div><div class="role-word">${secretWord.toUpperCase()}</div>`;
+    backFace.classList.add('role-good');
+    backFace.classList.remove('role-bad');
+  }
+
+  // show flip first (as before)
+  flip.classList.add('flipped');
+
+  document.getElementById('showBtn').style.display = 'none';
+  const hideBtn = document.getElementById('hideBtn');
+  hideBtn.style.display = 'inline-block';
+  hideBtn.classList.remove('slide-in');
+  setTimeout(() => { hideBtn.classList.add('slide-in'); }, 25);
+}
+
+/* hide role & advance (FIXED: wait for slide-out to finish, then unflip) */
+function hideRole(){
+  const flip = document.getElementById('flipCard');
+  const hideBtn = document.getElementById('hideBtn');
+
+  // start slide-out animation
+  hideBtn.classList.remove('slide-in');
+
+  // wait for animation to finish + small buffer, THEN hide button and unflip card
+  const slideDuration = 360; // match CSS transition duration
+  setTimeout(()=> {
+    hideBtn.style.display = 'none';
+    // unflip after button is fully gone (prevents brief visibility glitch)
+    flip.classList.remove('flipped');
+
+    // advance to next player AFTER a tiny delay so unflip animation can start
+    setTimeout(()=> {
+      current++;
+      if (current < players.length){
+        updateCurrentUI();
+        document.getElementById('showBtn').style.display = 'inline-block';
+      } else {
+        showEndScreen();
+      }
+    }, 180);
+
+  }, slideDuration);
+
+}
+
+/* end / confetti */
+function showEndScreen(){
+  showScreen('endScreen');
+  confettiBurst(48);
+}
+function confettiBurst(count){
+  const root = document.getElementById('confetti');
+  root.innerHTML = '';
+  for (let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.style.position = 'absolute';
+    const size = Math.floor(Math.random()*14)+8;
+    el.style.width = size + 'px';
+    el.style.height = Math.floor(size*1.4)+'px';
+    el.style.left = (Math.random()*90 + 5) + '%';
+    el.style.top = (-10 - Math.random()*10) + 'vh';
+    el.style.background = confettiColors[Math.floor(Math.random()*confettiColors.length)];
+    el.style.opacity = '0.95';
+    el.style.borderRadius = '2px';
+    el.style.transform = `rotate(${Math.random()*360}deg)`;
+    el.style.transition = `transform ${ (Math.random()*2 + 2.2).toFixed(2) }s linear, top ${ (Math.random()*2 + 2.2).toFixed(2) }s linear`;
+    root.appendChild(el);
+    setTimeout(()=> {
+      el.style.top = (100 + Math.random()*20) + 'vh';
+      el.style.transform = `rotate(${Math.random()*720}deg) translateY(0px)`;
+    }, 20);
+    setTimeout(()=> { if(el.parentNode) el.parentNode.removeChild(el); }, 8000);
+  }
+}
+
+/* new game / exit */
+function newGameSamePlayers(){ startNewRound(); }
+function exitToStart(){
+  players = []; secretWord=''; imposterIndices=[]; current=0;
+  document.getElementById('namesContainer').innerHTML = '';
+  const numSlot = document.getElementById('numSlot'); if (numSlot) numSlot.textContent = String(numPlayersVal);
+  const impslot = document.getElementById('imposterSlot'); if (impslot) impslot.textContent = String(numImpostersVal);
+  showScreen('startScreen');
+}
+
+/* init */
+(function init(){
+  document.getElementById('numSlot').textContent = String(numPlayersVal);
+  document.getElementById('imposterSlot').textContent = String(numImpostersVal);
+  attachInlineEditors();
+  showScreen('startScreen');
+})();
+</script>
+</body>
+</html>
